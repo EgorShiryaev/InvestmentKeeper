@@ -1,0 +1,60 @@
+import BadRequestException from '../../../core/exception/bad_request_exception';
+import { IException } from '../../../core/exception/exception';
+import checkRequiredParams from '../../../core/utils/required_params/check_required_params';
+import getStatusCodeByExceptionCode from '../../../core/utils/response_utils/get_status_code_by_exception_code';
+import StatusCode from '../../../domain/entities/status_code';
+import ErrorResponseData from '../../types/response_data/error_response_data';
+import ApiMethod from '../../types/methods/api_method';
+import checkIsIsoDateFormat from '../../../core/utils/required_params/check_is_iso_date_format';
+import getAuthedUser from '../../../core/utils/get_auth_user';
+import { CreateWithdrawalUsecase } from '../../../domain/usecases/create_withdrawal_usecase';
+import CreateWithdrawalRequestData from '../../types/request_data/create_withdrawal_request_data';
+import ExceptionId from '../../../core/exception/exception_id';
+import getCodeAndResponseDataByException from '../../../core/utils/response_utils/send_error_reponse_by_exception';
+
+type Params = {
+  createWithdrawalUsecase: CreateWithdrawalUsecase;
+};
+
+const CreateWithdrawal = ({ createWithdrawalUsecase }: Params): ApiMethod => {
+  const requiredParams = ['accountId', 'value', 'currency'];
+
+  return {
+    handler: async (request, response) => {
+      try {
+        console.log(request.method, request.url);
+        const params: CreateWithdrawalRequestData = request.body;
+        checkRequiredParams({
+          body: params,
+          params: requiredParams,
+        });
+        if (
+          params.date !== null &&
+          params.date !== undefined &&
+          !checkIsIsoDateFormat(params.date)
+        ) {
+          throw BadRequestException({
+            id: ExceptionId.invalidDateDormat,
+            message: 'date should be is string to iso date format',
+          });
+        }
+        getAuthedUser(request.headers);
+        await createWithdrawalUsecase.call({
+          accountId: params.accountId,
+          value: params.value,
+          currencyName: params.currency,
+          date: params.date,
+        });
+        response.sendStatus(StatusCode.created);
+      } catch (error) {
+        const { statusCode, responseData } = getCodeAndResponseDataByException(
+          error as IException,
+        );
+        response.status(statusCode).json(responseData);
+      }
+    },
+  };
+};
+
+export default CreateWithdrawal;
+
